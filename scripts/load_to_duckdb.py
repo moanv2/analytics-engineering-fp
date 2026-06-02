@@ -4,7 +4,7 @@
 import duckdb
 from pathlib import Path
 
-DATA_DIR = Path("data/raw/open_meteo")
+DATA_DIR = Path("Project_Instructions/open_meteo_group_project/data/raw/open_meteo")
 DB_PATH = Path("data/weather_analytics.duckdb")
 
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
