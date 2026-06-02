@@ -20,14 +20,10 @@ models:
         description: "Name of the city."
         tests:
           - not_null
-      - name: country
-        description: "Country name."
       - name: country_code
         description: "ISO country code."
         tests:
           - not_null
-      - name: admin1
-        description: "First-level administrative region (autonomous community in Spain)."
       - name: latitude
         description: "Latitude in decimal degrees."
         tests:
@@ -36,12 +32,6 @@ models:
         description: "Longitude in decimal degrees."
         tests:
           - not_null
-      - name: timezone
-        description: "IANA timezone string."
-      - name: elevation
-        description: "Elevation in metres above sea level."
-      - name: population
-        description: "City population."
 
   - name: fct_city_weather_day
     description: >
@@ -59,60 +49,41 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('dim_location')
-              field: location_id
+              arguments:
+                to: ref('dim_location')
+                field: location_id
       - name: weather_date
         description: "Calendar date of the observation."
         tests:
           - not_null
-      - name: temperature_2m_max
-        description: "Maximum daily temperature at 2m in °C."
-      - name: temperature_2m_min
-        description: "Minimum daily temperature at 2m in °C."
-      - name: temperature_2m_mean
-        description: "Mean daily temperature at 2m in °C."
-      - name: precipitation_sum
-        description: "Total daily precipitation in mm."
-      - name: rain_sum
-        description: "Total daily rain in mm."
-      - name: snowfall_sum
-        description: "Total daily snowfall in cm."
-      - name: wind_speed_10m_max
-        description: "Maximum daily wind speed at 10m in km/h."
-      - name: temp_range_c
-        description: "Diurnal temperature range (max - min) in °C."
-      - name: avg_european_aqi
-        description: "Daily average European Air Quality Index (joined from air quality data)."
-      - name: max_european_aqi
-        description: "Daily maximum European AQI."
-      - name: avg_pm10
-        description: "Daily average PM10 in µg/m³."
-      - name: avg_pm2_5
-        description: "Daily average PM2.5 in µg/m³."
       - name: is_hot_day
         description: "1 if temperature_2m_max >= 30°C, else 0."
         tests:
           - not_null
           - accepted_values:
-              values: [0, 1]
+              arguments:
+                values: [0, 1]
       - name: is_rainy_day
         description: "1 if precipitation_sum >= 5mm, else 0."
         tests:
           - not_null
           - accepted_values:
-              values: [0, 1]
+              arguments:
+                values: [0, 1]
       - name: is_windy_day
         description: "1 if wind_speed_10m_max >= 30 km/h, else 0."
         tests:
           - not_null
           - accepted_values:
-              values: [0, 1]
+              arguments:
+                values: [0, 1]
       - name: is_poor_air_day
         description: "1 if avg_european_aqi >= 50, else 0."
         tests:
           - not_null
           - accepted_values:
-              values: [0, 1]
+              arguments:
+                values: [0, 1]
       - name: is_comfortable_day
         description: >
           1 if temperature mean is 18–26°C, precipitation < 1mm,
@@ -120,13 +91,15 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: [0, 1]
+              arguments:
+                values: [0, 1]
       - name: daily_risk_score
         description: "Sum of risk flags (0–4). Higher = more weather risk."
         tests:
           - not_null
           - accepted_values:
-              values: [0, 1, 2, 3, 4]
+              arguments:
+                values: [0, 1, 2, 3, 4]
 
   - name: fct_air_quality_city_day
     description: >
@@ -143,20 +116,15 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('dim_location')
-              field: location_id
+              arguments:
+                to: ref('dim_location')
+                field: location_id
       - name: city_name
         tests:
           - not_null
       - name: air_quality_date
         tests:
           - not_null
-      - name: avg_european_aqi
-        description: "Daily average European AQI."
-      - name: max_european_aqi
-        description: "Daily maximum European AQI."
-      - name: hourly_readings_count
-        description: "Number of hourly readings used in the daily aggregation."
 
   - name: fct_forecast_city_day
     description: >
@@ -172,8 +140,9 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('dim_location')
-              field: location_id
+              arguments:
+                to: ref('dim_location')
+                field: location_id
       - name: forecast_date
         description: "The date being forecasted."
         tests:
@@ -211,11 +180,13 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: [0, 1, 2, 3, 4]
+              arguments:
+                values: [0, 1, 2, 3, 4]
       - name: is_comfortable_day
         tests:
           - accepted_values:
-              values: [0, 1]
+              arguments:
+                values: [0, 1]
       - name: latitude
         tests:
           - not_null
