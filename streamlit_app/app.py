@@ -140,15 +140,24 @@ tab_risk, tab_comfort = st.tabs(["Risk ranking", "Comfort days"])
 
 with tab_risk:
     fig = px.bar(
-        city_rank,
+        city_rank.sort_values("avg_risk_score", ascending=False),
         x="city_name",
         y="avg_risk_score",
         color="avg_risk_score",
         color_continuous_scale="Reds",
-        labels={"city_name": "City", "avg_risk_score": "Avg daily risk score"},
-        title="Average daily risk score by city (higher = worse)",
+        labels={"city_name": "City", "avg_risk_score": "Avg risk score"},
+        title="Average Daily Risk Score by City",
+        custom_data=["city_name", "avg_risk_score"],
     )
-    fig.update_layout(coloraxis_showscale=False, xaxis_tickangle=-45)
+
+    fig.update_traces(
+        hovertemplate=(
+            "<b>%{customdata[0]}</b><br>"
+            "Avg Daily Risk Score: %{customdata[1]:.2f}"
+            "<extra></extra>"
+        )
+    )
+    fig.update_layout(xaxis_tickangle=-45, coloraxis_showscale=False)
     st.plotly_chart(fig, use_container_width=True)
 
 with tab_comfort:
@@ -160,6 +169,14 @@ with tab_comfort:
         color_continuous_scale="Greens",
         labels={"city_name": "City", "comfortable_days": "Comfortable days"},
         title="Total comfortable days by city",
+        custom_data=["city_name", "comfortable_days"]
+    )
+    fig.update_traces(
+        hovertemplate=(
+            "<b>%{customdata[0]}</b><br>"
+            "Comfortable days: %{customdata[1]:.2f}"
+            "<extra></extra>"
+        )
     )
     fig.update_layout(coloraxis_showscale=False, xaxis_tickangle=-45)
     st.plotly_chart(fig, use_container_width=True)
@@ -187,6 +204,22 @@ fig = px.line(
     color="city_name",
     labels={"date_day": "Date", metric: metric_labels[metric], "city_name": "City"},
     title=f"{metric_labels[metric]} over time",
+    custom_data=["city_name", "date_day", metric],
+)
+
+fig.update_traces(
+    hovertemplate=(
+        "<b>%{customdata[0]}</b><br>"
+        "Date: %{customdata[1]|%Y-%m-%d}<br>"
+        f"{metric_labels[metric]}: " + "%{customdata[2]:.2f}"
+        "<extra></extra>"
+    )
+)
+fig.update_layout(
+    hovermode="closest",
+    xaxis_title="Date",
+    yaxis_title=metric_labels[metric],
+    legend_title="City",
 )
 st.plotly_chart(fig, use_container_width=True)
 
@@ -209,21 +242,27 @@ fig = px.scatter_mapbox(
     color="daily_risk_score",
     size="plot_size",
     hover_name="city_name",
-    hover_data={
-        "temperature_2m_mean": ":.1f",
-        "avg_european_aqi": ":.1f",
-        "daily_risk_score": True,
-        "plot_size": False,
-        "latitude": False,
-        "longitude": False,
-    },
+    custom_data=["city_name", "daily_risk_score", "temperature_2m_mean", "avg_european_aqi"],
     color_continuous_scale="RdYlGn_r",
     zoom=5,
     center={"lat": 40.0, "lon": -3.5},
     height=500,
     title="Daily risk score by city (latest date)",
 )
-fig.update_layout(mapbox_style="open-street-map")
+
+fig.update_traces(
+    hovertemplate=(
+        "<b>%{customdata[0]}</b><br>"
+        "Risk score: %{customdata[1]:.2f}<br>"
+        "Avg temperature: %{customdata[2]:.1f} °C<br>"
+        "Avg AQI: %{customdata[3]:.1f}"
+        "<extra></extra>"
+    )
+)
+fig.update_layout(
+    mapbox_style="open-street-map",
+    coloraxis_colorbar=dict(title="Risk score"),
+)
 st.plotly_chart(fig, use_container_width=True)
 
 # ── Top 10 worst city-days ─────────────────────────────────────────────────────
@@ -249,5 +288,19 @@ worst = (
     .head(10)
     .reset_index(drop=True)
 )
+worst["date_day"] = worst["date_day"].dt.date
 worst.index += 1
+worst.columns = [
+    "City",
+    "Date",
+    "Risk Score",
+    "Max Temp (°C)",
+    "Precipitation (mm)",
+    "Max Wind (km/h)",
+    "Avg AQI",
+    "Hot Day",
+    "Rainy Day",
+    "Windy Day",
+    "Poor Air Day",
+]
 st.dataframe(worst, use_container_width=True)
