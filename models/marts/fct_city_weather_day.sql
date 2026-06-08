@@ -1,30 +1,41 @@
-with risk_flags as (
+with weather as (
 
-    select * from {{ ref('int_weather_risk_flags') }}
+    select * from {{ ref('int_city_day_weather') }}
+
+),
+
+final as (
+
+    select
+        city_day_weather_sk as city_weather_day_sk,
+        {{ dbt_utils.generate_surrogate_key(['location_id']) }} as location_sk,
+        location_id,
+        city_name,
+        country_code,
+        weather_date,
+        {{ season_from_date('weather_date') }} as season,
+        temperature_2m_max,
+        temperature_2m_min,
+        temperature_2m_mean,
+        temp_range_c,
+        precipitation_sum,
+        rain_sum,
+        snowfall_sum,
+        wind_speed_10m_max,
+        is_rainy,
+        is_windy,
+        is_hot,
+        is_freezing,
+        (
+            temperature_2m_mean between 18.0 and 26.0
+            and not is_rainy
+            and not is_windy
+            and not is_hot
+            and not is_freezing
+        ) as is_comfortable
+
+    from weather
 
 )
 
-select
-    city_day_weather_sk,
-    location_id,
-    weather_date,
-    temperature_2m_max,
-    temperature_2m_min,
-    temperature_2m_mean,
-    precipitation_sum,
-    rain_sum,
-    snowfall_sum,
-    wind_speed_10m_max,
-    temp_range_c,
-    avg_european_aqi,
-    max_european_aqi,
-    avg_pm10,
-    avg_pm2_5,
-    is_hot_day,
-    is_rainy_day,
-    is_windy_day,
-    is_poor_air_day,
-    is_comfortable_day,
-    daily_risk_score,
-    extracted_at
-from risk_flags
+select * from final
