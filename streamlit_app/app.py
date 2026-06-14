@@ -53,14 +53,22 @@ CITY_COLORS = [TERRACOTTA, COBALT, OCHRE, GREEN, VIOLET]
 ASSETS = Path(__file__).resolve().parent / "assets" / "cities"
 
 
+# Utility to convert city names to slug format matching the photo filenames
+# (e.g. "Las Palmas de Gran Canaria" -> "laspalmasdegrancanaria.jpg")
 def city_slug(name: str) -> str:
     """Accent-stripped lowercase alphanumeric slug, matching the photo filenames."""
     n = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]", "", n.lower())
 
 
+# Mapping of city names to their photo paths. If a photo is missing, the
+# spotlight card falls back to a terracotta background with a blurb
 def city_photo(name: str) -> Path:
     return ASSETS / f"{city_slug(name)}.jpg"
+
+
+# Short blurbs for the city spotlight cards, ideally evoking the vibe of the
+# city and its weather in one sentence: done to avoid having a "missing image".
 CITY_BLURBS = {
     "Madrid": "Gran Vía at golden hour — the capital's restless heart.",
     "Barcelona": "Gaudí's Sagrada Família against the Mediterranean sky.",
@@ -68,8 +76,9 @@ CITY_BLURBS = {
     "Sevilla": "Plaza de España — Andalusian sun and tilework.",
     "Bilbao": "The Guggenheim's titanium curves on the Nervión.",
 }
-# Official municipal (city hall) websites — shown as a link on each spotlight card.
-# All 58 verified reachable (region TLDs: .es default, .cat Catalonia, .gal Galicia, .eus Euskadi).
+
+# Official municipal (city hall) websites — shown as a link on each spotlight card, with all 58 verified reachable 
+# (region TLDs: .es default, .cat Catalonia, .gal Galicia, .eus Euskadi).
 CITY_GOV = {
     "Madrid": "https://www.madrid.es",
     "Barcelona": "https://www.barcelona.cat",
@@ -131,10 +140,12 @@ CITY_GOV = {
     "Ibiza": "https://www.eivissa.es",
 }
 
+# Scales for the gauges: colors and thresholds for comfort, AQI and heat
 COMFORT_SCALE = [DANGER, TERRACOTTA, OCHRE, GREEN]   # low -> high (good)
 AQI_SCALE = [GREEN, OCHRE, TERRACOTTA, DANGER]       # low (good) -> high (bad)
 HEAT_SCALE = ["#1E3A8A", COBALT, GREEN, OCHRE, TERRACOTTA]  # cold -> hot
 
+# Streamlit page config
 st.set_page_config(
     page_title="City Comfort Index",
     page_icon="◧",
@@ -146,6 +157,10 @@ st.set_page_config(
 # --------------------------------------------------------------------------- #
 # Styling — brutalist website skin
 # --------------------------------------------------------------------------- #
+
+# The CSS for the dashboard: it uses custom classes for the main design elements,
+# (top bar, hero, chips, city spotlight) and relies on Streamlit's default class names for the rest (metrics, charts, tables).
+# The color palette is defined in the config section above for easy adjustments.
 st.markdown(
     f"""
     <style>
@@ -272,12 +287,14 @@ st.markdown(
 )
 
 
+# Utility functions
 def _rgba(hex_color: str, alpha: float) -> str:
     h = hex_color.lstrip("#")
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return f"rgba({r},{g},{b},{alpha})"
 
 
+# Base64-encode a local image so it can be inlined in CSS/HTML
 @st.cache_data
 def img_b64(path: Path) -> str:
     """Base64-encode a local image so it can be inlined in CSS/HTML (works on Cloud)."""
@@ -285,6 +302,8 @@ def img_b64(path: Path) -> str:
     return base64.b64encode(p.read_bytes()).decode() if p.exists() else ""
 
 
+# A default Plotly figure style matching the brutalist website skin: white background, thick ink borders, CITY_COLORS palette.
+# Used for all charts for a cohesive look.
 def style_fig(fig: go.Figure, height: int = 340, bars: bool = False) -> go.Figure:
     fig.update_layout(
         template="plotly_white",
@@ -303,14 +322,18 @@ def style_fig(fig: go.Figure, height: int = 340, bars: bool = False) -> go.Figur
     return fig
 
 
+# Section header helper: an "eyebrow" label above the header for extra style points and better scannability.
 def section(eyebrow: str, title: str) -> None:
     st.markdown(f'<div class="eyebrow">{eyebrow}</div>', unsafe_allow_html=True)
     st.subheader(title)
 
-
 # --------------------------------------------------------------------------- #
 # Data access (reads from marts)
 # --------------------------------------------------------------------------- #
+
+# Cached connection to DuckDB (cached across Streamlit sessions for efficiency; 
+# if the DB file is missing, shows an error and stops execution)
+
 @st.cache_resource
 def get_connection() -> duckdb.DuckDBPyConnection:
     if not DB_PATH.exists():
@@ -322,11 +345,13 @@ def get_connection() -> duckdb.DuckDBPyConnection:
     return duckdb.connect(str(DB_PATH), read_only=True)
 
 
+# Cached data loading functions for each of the main datasets (summary, daily weather, daily AQI, season summary, extreme events).
 @st.cache_data(ttl=600)
 def load_summary() -> pd.DataFrame:
     return get_connection().sql("select * from main.mart_city_weather_summary").df()
 
 
+# Caching the daily weather and AQI tables separately with a TTL, as they can be quite large to deal with
 @st.cache_data(ttl=600)
 def load_daily_weather() -> pd.DataFrame:
     return get_connection().sql(
@@ -339,6 +364,7 @@ def load_daily_weather() -> pd.DataFrame:
     ).df()
 
 
+# Caching the daily AQI table separately with a TTL, as it can be quite large to deal with and is not needed for all visualizations
 @st.cache_data(ttl=600)
 def load_daily_aqi() -> pd.DataFrame:
     return get_connection().sql(
@@ -347,6 +373,7 @@ def load_daily_aqi() -> pd.DataFrame:
     ).df()
 
 
+# Caching the seasonal summary table separately with a TTL, as it can be quite large to deal with
 @st.cache_data(ttl=600)
 def load_season_summary() -> pd.DataFrame:
     try:
@@ -359,7 +386,7 @@ def load_season_summary() -> pd.DataFrame:
     except Exception:
         return pd.DataFrame()
 
-
+# Caching the extreme events table separately with a TTL
 @st.cache_data(ttl=600)
 def load_extreme_events() -> pd.DataFrame:
     try:
@@ -371,6 +398,8 @@ def load_extreme_events() -> pd.DataFrame:
 # --------------------------------------------------------------------------- #
 # Load
 # --------------------------------------------------------------------------- #
+
+# Load all the data we need for the dashboard
 summary = load_summary()
 weather = load_daily_weather()
 aqi = load_daily_aqi()
@@ -382,7 +411,9 @@ aqi["air_quality_date"] = pd.to_datetime(aqi["air_quality_date"])
 # --------------------------------------------------------------------------- #
 # Sidebar (reference only — the city picker lives up top in the main area)
 # --------------------------------------------------------------------------- #
-st.sidebar.header("About")
+
+
+# Simple reference for the data grain and how to reproduce the dashboard
 st.sidebar.markdown(
     """
     <div class="footnote">
@@ -402,6 +433,9 @@ st.sidebar.markdown(
 # --------------------------------------------------------------------------- #
 # Top bar + hero
 # --------------------------------------------------------------------------- #
+
+
+# Top bar with a custom "wordmark" logo and a "chip" showing the main data sources/tools used in the project
 st.markdown(
     '<div class="topbar"><div class="wordmark"><span class="sq"></span>CITY COMFORT INDEX</div>'
     '<div class="chip muted">OPEN-METEO · DBT · DUCKDB</div></div>',
@@ -425,6 +459,8 @@ all_cities = sorted(summary["city_name"].tolist())
 MAJOR_CITIES = ["Madrid", "Barcelona", "Valencia", "Sevilla", "Bilbao"]
 default_cities = [c for c in MAJOR_CITIES if c in all_cities] or all_cities
 
+
+# Helper to create a section with an "eyebrow" label and a header, for better scannability and style
 section("Controls", "Choose cities to display")
 ctrl_l, ctrl_r = st.columns([2.1, 1])
 with ctrl_l:
@@ -488,6 +524,7 @@ ranking["overall_comfort_index"] = (
 ranking = ranking.sort_values("overall_comfort_index", ascending=False)
 best_city = ranking.iloc[0]
 
+
 def _zone_now(tz: str) -> str:
     """Current HH:MM:SS in an IANA timezone; falls back to UTC if tzdata is missing."""
     try:
@@ -523,10 +560,10 @@ live_status()
 # --------------------------------------------------------------------------- #
 section("City spotlight", "Postcards from the data")
 # The carousel rotates through the cities you select: a photo for the majors,
-# a branded card otherwise. Each card links to the city's town hall when known.
+# a branded card otherwise. Each card links to the city's town hall when known
 spotlight_cities = selected_cities
 
-
+# The spotlight rotates every 4 seconds, using a session state counter to keep track of the current index
 @st.fragment(run_every="4s")
 def city_spotlight() -> None:
     n = len(spotlight_cities)
@@ -565,7 +602,7 @@ def city_spotlight() -> None:
         unsafe_allow_html=True,
     )
 
-
+# Run the spotlight fragment to display the carousel
 city_spotlight()
 
 # Thumbnail strip — photo cities within the current selection (cap to keep it tidy)
@@ -586,6 +623,9 @@ st.markdown("")
 # --------------------------------------------------------------------------- #
 # KPI cards
 # --------------------------------------------------------------------------- #
+
+# KPI cards that show the number of selected cities, average temperature, total number of comfortable days, and the top city
+# by overall comfort index.
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Cities", len(selected_cities))
 k2.metric("Avg temp", f"{w['temperature_2m_mean'].mean():.1f} °C")
@@ -600,6 +640,8 @@ st.markdown("")
 # --------------------------------------------------------------------------- #
 # Gauges
 # --------------------------------------------------------------------------- #
+
+# Brutalist meter card: big value + a progress bar showing where it sits on its scale
 def meter_card(label, value, vmin, vmax, color, suffix=""):
     """A brutalist meter: big value + a progress bar showing where it sits on its scale."""
     pct = max(0.0, min(100.0, (float(value) - vmin) / (vmax - vmin) * 100))
@@ -612,7 +654,9 @@ def meter_card(label, value, vmin, vmax, color, suffix=""):
     </div>
     """
 
-
+# --------------------------------------------------------------------------- #
+# Instruments: three brutalist meter cards showing overall comfort, comfort score, and AQI
+# --------------------------------------------------------------------------- #
 section("Instruments", "At a glance")
 aqi_mean = a["avg_european_aqi"].mean() if not a.empty else 0.0
 g1, g2, g3 = st.columns(3)
@@ -845,12 +889,15 @@ else:
             .reindex(SEASON_ORDER)
         )
 
+        # Helper to color the season cards based on average temperature
         def _season_color(t: float) -> str:
             if pd.isna(t):
                 return MUTED
             return ("#1E3A8A" if t < 6 else COBALT if t < 12 else GREEN
                     if t < 18 else OCHRE if t < 24 else TERRACOTTA)
-
+        
+        # Create a card for each season showing its average temperature and comfort score, 
+        # with a colored border based on the temperature
         cards = []
         for name in SEASON_ORDER:
             row = seas_agg.loc[name]
@@ -948,7 +995,7 @@ else:
 # --------------------------------------------------------------------------- #
 section("Reference", "City comfort table")
 
-
+# Helper to convert a European AQI value into a label + color for the chip in the table
 def aqi_band_chip(aqi: float):
     """Return (label, color) for a European AQI value, matching the dbt seed bands."""
     if pd.isna(aqi):
@@ -961,7 +1008,7 @@ def aqi_band_chip(aqi: float):
             return (label, col)
     return ("EXTREME", "#7F1D1D")
 
-
+# Sorting options for the city comfort table
 SORT_OPTS = {
     "Overall index": ("overall_comfort_index", False),
     "Comfort score": ("comfort_score", False),
@@ -974,6 +1021,7 @@ with sc_l:
 order_col, asc = SORT_OPTS[sort_label]
 tbl = ranking.sort_values(order_col, ascending=asc, na_position="last").reset_index(drop=True)
 
+# Build the HTML for the table rows, including a colored bar for comfort score and a chip for AQI band
 MEDALS = {0: "#DAA144", 1: "#C9C9C2", 2: "#C0845A"}  # gold / silver / bronze
 rows_html = []
 for i, r in tbl.iterrows():
@@ -1027,6 +1075,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# --------------------------------------------------------------------------- #
+# Table: full numeric table (sortable) + metric definitions
+# --------------------------------------------------------------------------- #
 table = ranking[[
     "city_name", "days", "avg_temp", "comfortable_days", "rainy_days",
     "windy_days", "hot_days", "comfort_score", "avg_european_aqi", "overall_comfort_index",
