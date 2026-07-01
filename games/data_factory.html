@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DATA FACTORY — you are the test (until you buy one)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bp:#0B2545; --bp2:#0E2C53; --panel:#102F5B; --line:#1D4675;
+    --chalk:#EAF4FF; --sky:#9FD8FF; --dim:#7FA6C9;
+    --dbt:#FF694A; --duck:#FFD84D; --pass:#57D9A3; --fail:#FF7B7B; --drift:#C77DFF;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{
+    min-height:100vh;background:var(--bp);color:var(--chalk);
+    font-family:'Space Grotesk',sans-serif;padding:12px;
+    background-image:
+      linear-gradient(rgba(159,216,255,.05) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(159,216,255,.05) 1px,transparent 1px);
+    background-size:28px 28px;
+    display:flex;justify-content:center;overflow-x:hidden;
+  }
+  body.shake{animation:bshake .4s}
+  @keyframes bshake{20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+  .wrap{width:100%;max-width:1160px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:2px 2px 10px}
+  h1{font-size:clamp(17px,2.4vw,24px);font-weight:700}
+  h1 span{color:var(--dbt)}
+  .tag{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--dim)}
+  .hud{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace}
+  .pill{background:var(--panel);border:1.5px solid var(--line);border-radius:18px;padding:6px 12px;font-size:12px;white-space:nowrap}
+  .pill b{color:var(--duck)}
+  .pill.trust b{color:var(--pass)} .pill.trust.low b{color:var(--fail)}
+  .tbar{display:inline-block;width:70px;height:6px;background:#0007;border-radius:4px;margin-left:6px;vertical-align:middle;overflow:hidden}
+  .tbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--pass),var(--duck));transition:width .3s}
+  .btn{
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:12.5px;
+    background:var(--dbt);border:none;color:#fff;border-radius:9px;padding:9px 14px;cursor:pointer;
+    box-shadow:0 4px 0 #B23A22;transition:transform .05s;
+  }
+  .btn:active{transform:translateY(3px);box-shadow:0 1px 0 #B23A22}
+  .btn:disabled{background:#31517A;box-shadow:0 4px 0 #1D3355;color:#8FA9C4;cursor:not-allowed}
+  main{display:grid;grid-template-columns:1fr 300px;gap:12px;align-items:start}
+  @media(max-width:880px){main{grid-template-columns:1fr}}
+  /* ============ TOWER ============ */
+  .tower{
+    position:relative;height:600px;border:2px solid var(--line);border-radius:14px;overflow:hidden;
+    background:linear-gradient(180deg,#0A1F3D 0%,#0E2C53 60%,#0A2A1F 100%);
+    user-select:none;cursor:crosshair;
+  }
+  .floor{
+    position:absolute;left:0;right:0;border-top:2px dashed #2B5C93;padding:2px 8px;
+    font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#3F6C9E;letter-spacing:1.5px;
+    display:flex;justify-content:space-between;pointer-events:none;
+  }
+  .floor .machines{display:flex;gap:6px;font-size:13px;letter-spacing:0}
+  .machine{opacity:.22;filter:grayscale(1);transition:all .3s}
+  .machine.on{opacity:1;filter:none;text-shadow:0 0 8px rgba(255,216,77,.8)}
+  .machine.zap{animation:mz .3s}
+  @keyframes mz{50%{transform:scale(1.5)}}
+  #dashzone{
+    position:absolute;top:0;left:0;right:0;height:52px;pointer-events:none;
+    background:linear-gradient(180deg,rgba(255,105,74,.22),transparent);
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:#FFB4A1;letter-spacing:1px;
+  }
+  #swampzone{
+    position:absolute;bottom:0;left:0;right:0;height:44px;pointer-events:none;
+    background:linear-gradient(0deg,rgba(87,217,163,.13),transparent);
+    display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px;
+    font-family:'IBM Plex Mono',monospace;font-size:10px;color:#3F8F6E;letter-spacing:2px;
+  }
+  .row{
+    position:absolute;transform:translate(-50%,-50%);
+    background:#12345F;border:2px solid var(--line);border-radius:9px;
+    padding:4px 8px;font-family:'IBM Plex Mono',monospace;font-size:11px;
+    display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap;
+    box-shadow:0 3px 8px #0006;transition:border-color .15s;will-change:top;
+  }
+  .row:hover{border-color:var(--sky)}
+  .row.dirty{border-color:var(--fail);background:#3A1B2A}
+  .row.drift{border-color:var(--drift);background:#2A1B3F;box-shadow:0 0 12px rgba(199,125,255,.5)}
+  .row.fixed{border-color:var(--pass);background:#0F3D33;cursor:default}
+  .row .em{font-size:14px}
+  .row.pop{animation:rowpop .25s}
+  @keyframes rowpop{40%{transform:translate(-50%,-50%) scale(1.35)}}
+  .row.nope{animation:rownope .3s}
+  @keyframes rownope{25%{transform:translate(-52%,-50%)}75%{transform:translate(-48%,-50%)}}
+  .float{
+    position:absolute;transform:translateX(-50%);font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;font-weight:700;pointer-events:none;animation:floatup 1s ease-out forwards;z-index:5;
+  }
+  @keyframes floatup{to{transform:translate(-50%,-46px);opacity:0}}
+  .stormbanner{
+    position:absolute;top:60px;left:50%;transform:translateX(-50%);z-index:6;
+    background:#2A1B3F;border:2px solid var(--drift);border-radius:10px;padding:8px 16px;
+    font-family:'IBM Plex Mono',monospace;font-size:12px;color:#E3C8FF;text-align:center;
+    animation:pulse 1s infinite;pointer-events:none;max-width:92%;
+  }
+  @keyframes pulse{50%{box-shadow:0 0 22px rgba(199,125,255,.7)}}
+  .tower.storm{background:linear-gradient(180deg,#1A1030 0%,#1B1440 60%,#0A2A1F 100%)}
+  /* ============ SHOP ============ */
+  .side{display:flex;flex-direction:column;gap:10px}
+  .card{background:linear-gradient(180deg,var(--bp2),var(--panel));border:1.5px solid var(--line);border-radius:12px;padding:12px 13px}
+  .card h3{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--sky);letter-spacing:1.5px;margin-bottom:8px}
+  .shopitem{
+    display:flex;gap:8px;align-items:flex-start;background:#0B2649;border:1.5px solid var(--line);
+    border-radius:9px;padding:7px 9px;margin-bottom:7px;cursor:pointer;transition:border-color .12s;position:relative;
+  }
+  .shopitem:hover{border-color:var(--duck)}
+  .shopitem .em{font-size:19px;line-height:1.2}
+  .shopitem .nm{font-size:12px;font-weight:700}
+  .shopitem .nm .sess{font-family:'IBM Plex Mono',monospace;font-size:8.5px;color:var(--dim);font-weight:400;margin-left:4px}
+  .shopitem .ds{font-size:10px;color:var(--dim);line-height:1.4}
+  .shopitem .price{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--duck);font-weight:700;white-space:nowrap}
+  .shopitem.locked{opacity:.38;pointer-events:none}
+  .shopitem.owned{border-color:var(--pass);cursor:default}
+  .shopitem.owned .price{color:var(--pass)}
+  .shopitem.broke .price{color:var(--fail)}
+  .shopitem.flash{animation:buyflash .5s}
+  @keyframes buyflash{30%{background:#0F3D33;transform:scale(1.03)}}
+  .log{
+    background:#061630;border:1.5px solid var(--line);border-radius:10px;
+    padding:8px 10px;height:110px;overflow-y:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.7;
+  }
+  .log .PASS{color:var(--pass)} .log .RUN{color:var(--duck)} .log .FAIL{color:var(--fail)} .log .INFO{color:#7DD3FC} .log .DRIFT{color:var(--drift)}
+  .overlay{
+    position:fixed;inset:0;background:#061630F2;display:flex;align-items:center;justify-content:center;
+    z-index:20;padding:18px;
+  }
+  .overlay .inner{max-width:660px;text-align:center}
+  .overlay h2{font-size:clamp(21px,4vw,32px);margin-bottom:12px}
+  .overlay h2 span{color:var(--dbt)}
+  .overlay p{font-size:14px;line-height:1.7;color:#C9DFF2;margin-bottom:11px}
+  .overlay .mono{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim)}
+  .report{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0;text-align:left}
+  .report div{background:var(--panel);border:1.5px solid var(--line);border-radius:9px;padding:9px 12px;font-size:12px;line-height:1.5}
+  .report b{color:var(--duck);font-size:16px;display:block}
+  .garbage{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--fail);line-height:2;text-align:left;display:inline-block;margin:8px 0}
+  .conf{position:fixed;top:-16px;font-size:17px;z-index:30;animation:fall linear forwards;pointer-events:none}
+  @keyframes fall{to{transform:translateY(105vh) rotate(720deg)}}
+  footer{margin-top:10px;text-align:center;color:var(--dim);font-size:10.5px;font-family:'IBM Plex Mono',monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>DATA <span>FACTORY</span> 🏭</h1>
+      <div class="tag">you are the data quality process — until you buy your replacement</div>
+    </div>
+    <div class="hud">
+      <div class="pill trust" id="trustPill">TRUST <b id="trust">100</b><span class="tbar"><i id="trustBar"></i></span></div>
+      <div class="pill">🪙 <b id="cred">25</b></div>
+      <div class="pill">CLEAN <b id="clean">0</b>/146</div>
+      <div class="pill">COMBO <b id="combo">×0</b></div>
+      <button class="btn" id="buildBtn">dbt build 💥</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="tower" id="tower">
+      <div id="dashzone">📊 CITY COMFORT INDEX — only clean rows may enter</div>
+      <div class="floor" style="top:24%"><span>MARTS ★ (tables)</span><span class="machines" id="mFloor3"></span></div>
+      <div class="floor" style="top:46%"><span>INTERMEDIATE (views)</span><span class="machines" id="mFloor2"></span></div>
+      <div class="floor" style="top:68%"><span>STAGING (views)</span><span class="machines" id="mFloor1"></span></div>
+      <div id="swampzone">RAW SWAMP · OPEN-METEO · 58 CITIES</div>
+    </div>
+
+    <aside class="side">
+      <div class="card">
+        <h3>AUTOMATION SHOP — buy yourself out of the job</h3>
+        <div id="shop"></div>
+      </div>
+      <div class="card">
+        <h3>dbt LOG</h3>
+        <div class="log" id="log"></div>
+      </div>
+    </aside>
+  </main>
+  <footer>every machine = a real thing in moanv2/analytics-engineering-fp · sessions from dgarhdez/dbt-ie</footer>
+</div>
+
+<div class="overlay" id="intro">
+  <div class="inner">
+    <h2>CONGRATULATIONS ON YOUR NEW JOB: <span>HUMAN TEST SUITE</span></h2>
+    <p>Data rows are riding the conveyor from the raw swamp up to the <b>City Comfort Index</b> dashboard. Some are filthy — nulls, duplicates, dates-as-strings, negative AQI, a Sevilla reading of <b style="color:var(--fail)">999°C</b>. Right now there is exactly one quality process on this factory floor: <b>your finger</b>.</p>
+    <p><b>CLICK dirty rows to fix them by hand.</b> Clean deliveries earn credits. Spend credits in the shop to install the real dbt machinery — tests, macros, contracts, CI — and watch each purchase do your job better than you did.</p>
+    <p style="color:#E3C8FF">⚠ Beware <b>SCHEMA DRIFT STORMS</b>: type-mutated rows that <i>no click and no test can fix</i>. Only a <b>CONTRACT</b> on the marts floor stops them.</p>
+    <p class="mono">deliver 146 clean rows to win · trust hits 0 and the dashboard lies</p>
+    <button class="btn" onclick="startGame()">CLOCK IN ▶</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const tower=$('tower');
+
+/* ============ BUG TYPES ============ */
+const TYPES={
+  clean:{em:'📦',label:()=>pick(['Madrid 21°C','Bilbao 17°C','Sevilla 34°C','Valencia 24°C','AQI 42 · good','Zaragoza 19°C','Málaga 27°C']),dirty:false},
+  nul:  {em:'👺',label:()=>'temp: NULL',dirty:true,fixer:'notnull',floor:1},
+  dup:  {em:'👯',label:()=>'Bilbao ×2 same day',dirty:true,fixer:'unique',floor:1},
+  slime:{em:'🤢',label:()=>'date: "2026-06-07"',dirty:true,fixer:'caster',floor:1},
+  neg:  {em:'😈',label:()=>'AQI: −3',dirty:true,fixer:'nonneg',floor:2},
+  out:  {em:'🔥',label:()=>'SEVILLA 999°C',dirty:true,fixer:'range',floor:2},
+  drift:{em:'🌩️',label:()=>pick(['elevation → VARCHAR?!','temp_c → TEXT?!','city_id → FLOAT?!']),dirty:true,drift:true},
+};
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+
+/* ============ SHOP ============ */
+const SHOP={
+  caster:{em:'🧪',nm:'stg_caster',sess:'S02',cost:30,floor:1,unlock:0,
+    ds:'CASTs text to real types at staging. Auto-fixes 🤢 stringly dates.'},
+  notnull:{em:'⚡',nm:'not_null test',sess:'S03',cost:40,floor:1,unlock:8,
+    ds:'schema.yml test on staging. Auto-zaps 👺 NULL rows.'},
+  unique:{em:'🎯',nm:'unique test',sess:'S03',cost:40,floor:1,unlock:8,
+    ds:'PK test on the surrogate key. Auto-dedupes 👯 twins.'},
+  nonneg:{em:'🛑',nm:'non_negative (custom)',sess:'S09',cost:55,floor:2,unlock:20,
+    ds:'Our custom generic test. Auto-blocks 😈 negative counts.'},
+  range:{em:'📏',nm:'range test',sess:'S09',cost:55,floor:2,unlock:20,
+    ds:'dbt_expectations bounds. Auto-extinguishes 🔥 999°C outliers.'},
+  macro:{em:'🌀',nm:'season_from_date()',sess:'S07',cost:70,floor:2,unlock:35,
+    ds:'Macro enriches every row → clean deliveries pay ×2 credits.'},
+  contract:{em:'🛡️',nm:'CONTRACT WALL',sess:'S11',cost:110,floor:3,unlock:30,
+    ds:'Types frozen on dim_location + 2 marts. The ONLY thing that stops 🌩️ schema drift.'},
+  ci:{em:'🤖',nm:'CI robot',sess:'S13',cost:160,floor:3,unlock:75,
+    ds:'GitHub Actions on every push: auto-runs dbt build every 18s.'},
+};
+const owned={};
+
+/* ============ STATE ============ */
+const S={
+  running:false,over:false,t:0,last:0,
+  trust:100,cred:25,clean:0,combo:0,bestCombo:0,
+  manualFixes:0,autoFixes:0,driftBlocked:0,
+  rows:[],spawnT:0,buildCd:0,ciT:0,
+  storm:false,stormT:0,nextStorm:45,stormNum:0,warned:false,
+  toldDrift:false,
+};
+
+/* ============ LOG / FLOATERS ============ */
+function log(tag,msg){
+  const d=document.createElement('div');
+  d.innerHTML=`<span class="${tag}">${tag}</span> ${msg}`;
+  $('log').appendChild(d);
+  while($('log').children.length>40)$('log').removeChild($('log').firstChild);
+  $('log').scrollTop=$('log').scrollHeight;
+}
+function floater(x,y,txt,color){
+  const f=document.createElement('div');f.className='float';f.textContent=txt;
+  f.style.left=x+'px';f.style.top=y+'px';f.style.color=color||'var(--pass)';
+  tower.appendChild(f);setTimeout(()=>f.remove(),1000);
+}
+
+/* ============ SHOP UI ============ */
+function buildShop(){
+  const el=$('shop');el.innerHTML='';
+  for(const [k,it] of Object.entries(SHOP)){
+    const d=document.createElement('div');d.className='shopitem';d.id='shop_'+k;
+    d.innerHTML=`<div class="em">${it.em}</div>
+      <div><div class="nm">${it.nm}<span class="sess">${it.sess}</span></div>
+      <div class="ds">${it.ds}</div></div>
+      <div class="price">🪙${it.cost}</div>`;
+    d.onclick=()=>buy(k);
+    el.appendChild(d);
+  }
+  refreshShop();
+  // floor machine slots
+  $('mFloor1').innerHTML=['caster','notnull','unique'].map(k=>`<span class="machine" id="m_${k}">${SHOP[k].em}</span>`).join('');
+  $('mFloor2').innerHTML=['nonneg','range','macro'].map(k=>`<span class="machine" id="m_${k}">${SHOP[k].em}</span>`).join('');
+  $('mFloor3').innerHTML=['contract','ci'].map(k=>`<span class="machine" id="m_${k}">${SHOP[k].em}</span>`).join('');
+}
+function refreshShop(){
+  for(const [k,it] of Object.entries(SHOP)){
+    const d=$('shop_'+k);
+    d.classList.toggle('locked', S.clean<it.unlock && !owned[k]);
+    d.classList.toggle('owned', !!owned[k]);
+    d.classList.toggle('broke', !owned[k] && S.cred<it.cost);
+    if(owned[k]) d.querySelector('.price').textContent='INSTALLED ✓';
+    else if(S.clean<it.unlock) d.querySelector('.price').textContent=`unlocks @ ${it.unlock} clean`;
+    else d.querySelector('.price').textContent='🪙'+it.cost;
+  }
+}
+function buy(k){
+  const it=SHOP[k];
+  if(owned[k]||S.clean<it.unlock)return;
+  if(S.cred<it.cost){log('FAIL',`need 🪙${it.cost} for ${it.nm}`);return;}
+  S.cred-=it.cost;owned[k]=true;
+  $('shop_'+k).classList.add('flash');
+  $('m_'+k).classList.add('on');
+  log('INFO',`${it.em} ${it.nm} installed on floor ${it.floor} <i style="color:#4A7096">(−🪙${it.cost})</i>`);
+  if(k==='contract') log('INFO','🛡️ contracts enforced: dim_location · mart_city_season_summary · mart_extreme_events');
+  if(k==='ci') log('INFO','🤖 ci.yml armed: lint → pytest → dbt build, every push');
+  hudSync();
+}
+
+/* ============ SPAWNING ============ */
+function spawnRow(forceType){
+  const el=document.createElement('div');
+  const mins=S.t/60;
+  let type=forceType;
+  if(!type){
+    const dirtyP=Math.min(.30+mins*.09,.58);
+    if(Math.random()>dirtyP) type='clean';
+    else{
+      const pool=['nul','dup','slime'];
+      if(S.clean>=15)pool.push('neg','out');
+      type=pick(pool);
+    }
+  }
+  const T=TYPES[type];
+  const r={type,drift:!!T.drift,dirty:T.dirty,fixed:false,dead:false,
+    x:40+Math.random()*(tower.clientWidth-80),
+    y:tower.clientHeight+20,
+    spd:(46+Math.min(mins*10,34))*(T.drift?1.25:1)*(0.9+Math.random()*.25),
+    el};
+  el.className='row'+(T.dirty?(T.drift?' drift':' dirty'):'');
+  el.innerHTML=`<span class="em">${T.em}</span>${T.label()}`;
+  el.style.left=r.x+'px';el.style.top=r.y+'px';
+  el.onpointerdown=e=>{e.stopPropagation();clickRow(r);};
+  tower.appendChild(el);
+  S.rows.push(r);
+}
+
+/* ============ CLICK (manual fixing) ============ */
+function clickRow(r){
+  if(S.over||r.dead)return;
+  if(r.fixed||!r.dirty){ // clean row clicked
+    r.el.classList.add('nope');setTimeout(()=>r.el.classList.remove('nope'),320);
+    return;
+  }
+  if(r.drift){
+    r.el.classList.add('nope');setTimeout(()=>r.el.classList.remove('nope'),320);
+    floater(r.x,r.y,'clicks can\'t fix a TYPE change!','var(--drift)');
+    if(!S.toldDrift){S.toldDrift=true;
+      log('DRIFT','🌩️ tests & hands check <b>values</b> — a type change needs a <b>CONTRACT</b> (S11, in the shop)');}
+    return;
+  }
+  fixRow(r,true);
+}
+function fixRow(r,manual,machineKey){
+  r.fixed=true;r.dirty=false;
+  r.el.classList.remove('dirty');r.el.classList.add('fixed','pop');
+  r.el.querySelector('.em').textContent='✅';
+  if(manual){
+    S.manualFixes++;S.combo++;S.bestCombo=Math.max(S.bestCombo,S.combo);
+    S.cred+=1;
+    floater(r.x,r.y,`fixed by hand +🪙1 ×${S.combo}`,'var(--duck)');
+  } else {
+    S.autoFixes++;S.cred+=2;
+    const m=$('m_'+machineKey);if(m){m.classList.add('zap');setTimeout(()=>m.classList.remove('zap'),300);}
+    floater(r.x,r.y,`${SHOP[machineKey].em} auto-fix +🪙2`,'var(--pass)');
+  }
+  hudSync();
+}
+
+/* ============ GAME LOOP ============ */
+function loop(ts){
+  requestAnimationFrame(loop);
+  if(!S.running||S.over)return;
+  if(!S.last)S.last=ts;
+  const dt=Math.min((ts-S.last)/1000,.05);S.last=ts;S.t+=dt;
+
+  // cooldowns
+  if(S.buildCd>0){S.buildCd=Math.max(0,S.buildCd-dt);
+    $('buildBtn').textContent=S.buildCd>0?`dbt build ⏳${Math.ceil(S.buildCd)}`:'dbt build 💥';
+    $('buildBtn').disabled=S.buildCd>0;}
+  if(owned.ci){S.ciT+=dt;if(S.ciT>=18){S.ciT=0;dbtBuild(true);}}
+
+  // storm scheduling
+  if(!S.storm && S.t>=S.nextStorm-5 && S.t<S.nextStorm && !S.warned){
+    S.warned=true;stormWarn();
+  }
+  if(!S.storm && S.t>=S.nextStorm){startStorm();}
+  if(S.storm){
+    S.stormT-=dt;
+    if(Math.random()<dt*0.55) spawnRow('drift');
+    if(S.stormT<=0) endStorm();
+  }
+
+  // spawning
+  S.spawnT-=dt;
+  if(S.spawnT<=0){
+    spawnRow();
+    S.spawnT=Math.max(.5,1.5-S.t/75);
+  }
+
+  // move rows
+  const floorY={1:tower.clientHeight*.68,2:tower.clientHeight*.46,3:tower.clientHeight*.24};
+  for(const r of S.rows){
+    if(r.dead)continue;
+    r.y-=r.spd*dt;
+    r.el.style.top=r.y+'px';
+    // machine auto-fix on floor crossing
+    if(r.dirty&&!r.drift){
+      const T=TYPES[r.type];
+      if(owned[T.fixer] && r.y<=floorY[T.floor] && r.y>floorY[T.floor]-40){
+        fixRow(r,false,T.fixer);
+      }
+    }
+    // contract wall bounce for drift
+    if(r.drift&&r.dirty&&owned.contract&&r.y<=floorY[3]){
+      r.dead=true;S.driftBlocked++;S.cred+=3;
+      const m=$('m_contract');m.classList.add('zap');setTimeout(()=>m.classList.remove('zap'),300);
+      floater(r.x,r.y,'🛡️ CONTRACT: build fails safely +🪙3','var(--drift)');
+      log('DRIFT',`🛡️ contract blocked <b>${r.el.textContent.slice(2)}</b> at compile time`);
+      r.el.remove();
+      continue;
+    }
+    // reached dashboard
+    if(r.y<=46){
+      r.dead=true;r.el.remove();
+      if(r.dirty){
+        const hit=r.drift?15:8;
+        S.trust-=hit;S.combo=0;
+        document.body.classList.add('shake');setTimeout(()=>document.body.classList.remove('shake'),420);
+        floater(r.x,70,`−${hit} TRUST`,'var(--fail)');
+        log('FAIL',`${TYPES[r.type].em} reached the dashboard — trust −${hit}`);
+        if(S.trust<=0){S.trust=0;hudSync();loseGame();return;}
+      } else {
+        S.clean++;
+        S.trust=Math.min(100,S.trust+0.4);
+        const pay=owned.macro?4:2;
+        S.cred+=pay;
+        floater(r.x,70,`+🪙${pay}`,'var(--pass)');
+        if(S.clean%10===0)log('PASS',`${S.clean} clean deliveries · Completed successfully`);
+        checkUnlocks();
+        if(S.clean>=146){hudSync();winGame();return;}
+      }
+      hudSync();
+    }
+  }
+  S.rows=S.rows.filter(r=>!r.dead);
+}
+
+/* ============ STORMS (contracts showcase) ============ */
+function stormWarn(){
+  const b=document.createElement('div');b.className='stormbanner';b.id='stormB';
+  b.innerHTML='⚠ SCHEMA DRIFT STORM INCOMING — upstream is mutating column types.'+(owned.contract?' 🛡️ contracts armed.':' clicks & tests will NOT work. Buy the 🛡️ CONTRACT!');
+  tower.appendChild(b);setTimeout(()=>b.remove(),5000);
+  log('DRIFT','⚠ storm front detected upstream…');
+}
+function startStorm(){
+  S.storm=true;S.stormT=5+S.stormNum*2.5;S.stormNum++;S.warned=false;
+  tower.classList.add('storm');
+  log('DRIFT',`🌩️ SCHEMA DRIFT STORM ${S.stormNum} — type mutations inbound`);
+}
+function endStorm(){
+  S.storm=false;tower.classList.remove('storm');
+  S.nextStorm=S.t+34+Math.random()*14;
+  log('INFO',`storm passed · ${owned.contract?'🛡️ '+S.driftBlocked+' mutations blocked at compile time':'schema drift got through — contracts exist for exactly this'}`);
+}
+
+/* ============ dbt build (ultimate) ============ */
+function dbtBuild(auto){
+  if(!auto){if(S.buildCd>0||S.over||!S.running)return;S.buildCd=30;}
+  let n=0;
+  for(const r of S.rows){if(r.dirty&&!r.drift&&!r.dead){fixRow(r,false,'ci' in owned&&auto?'ci':bestMachineFor(r)||'caster');n++;}}
+  log(auto?'RUN':'RUN',`${auto?'🤖 CI':'manual'} dbt build — ${n} rows repaired${S.rows.some(r=>r.drift&&!r.dead)?' · 🌩️ drift untouched (that\'s a contract\'s job)':''}`);
+}
+function bestMachineFor(r){const f=TYPES[r.type].fixer;return owned[f]?f:null;}
+$('buildBtn').onclick=()=>dbtBuild(false);
+
+/* ============ UNLOCK TOASTS ============ */
+const MILESTONES=[[8,'S03 unlocked: not_null & unique tests in the shop'],[20,'S09 unlocked: custom non_negative + range tests'],[30,'S11 unlocked: 🛡️ CONTRACT WALL — storm insurance'],[35,'S07 unlocked: season_from_date() macro (×2 pay)'],[75,'S13 unlocked: 🤖 CI robot — full automation']];
+function checkUnlocks(){
+  for(const [n,msg] of MILESTONES){
+    if(S.clean===n)log('INFO','🔓 '+msg);
+  }
+  refreshShop();
+}
+
+/* ============ HUD ============ */
+function hudSync(){
+  $('trust').textContent=Math.max(0,Math.round(S.trust));
+  $('trustBar').style.width=Math.max(0,S.trust)+'%';
+  $('trustPill').classList.toggle('low',S.trust<=35);
+  $('cred').textContent=S.cred;
+  $('clean').textContent=S.clean;
+  $('combo').textContent='×'+S.combo;
+  refreshShop();
+}
+
+/* ============ WIN / LOSE ============ */
+function endStats(){
+  const auto=S.autoFixes+S.driftBlocked;
+  return `<div class="report">
+    <div><b>${S.manualFixes}</b>rows you fixed by hand (RSI pending)</div>
+    <div><b>${auto}</b>rows the machines fixed for you</div>
+    <div><b>${S.driftBlocked}</b>schema drifts stopped by contracts 🛡️</div>
+    <div><b>×${S.bestCombo}</b>best manual combo — respect</div>
+  </div>`;
+}
+function winGame(){
+  if(S.over)return;S.over=true;
+  for(let i=0;i<70;i++){
+    const c=document.createElement('div');c.className='conf';
+    c.textContent=['🎉','🦆','🏭','✅','📊','🛡️'][i%6];
+    c.style.left=Math.random()*100+'vw';
+    c.style.animationDuration=(2.4+Math.random()*2.6)+'s';
+    c.style.animationDelay=(Math.random()*1.2)+'s';
+    document.body.appendChild(c);setTimeout(()=>c.remove(),6500);
+  }
+  const auto=S.autoFixes+S.driftBlocked, tot=auto+S.manualFixes||1;
+  const o=document.createElement('div');o.className='overlay';
+  o.innerHTML=`<div class="inner">
+    <h2>146 CLEAN DELIVERIES — <span>ALL GREEN</span> ✅</h2>
+    ${endStats()}
+    <p><b>You started as the test. Then you bought the tests.</b> ${Math.round(auto/tot*100)}% of your quality work ended up automated — which is the whole dbt pitch: IDC measured <b style="color:var(--duck)">44% higher data-team productivity</b>, <b style="color:var(--duck)">33% fewer data quality issues</b> and a <b style="color:var(--duck)">559% ROI</b> from teams that made this exact trade.</p>
+    <p style="color:#E3C8FF">And the storms? Tests check <b>values</b>; contracts freeze the <b>shape</b>. That's why nothing but the 🛡️ wall ever stopped the drift — same as <code style="font-family:'IBM Plex Mono',monospace">dim_location</code>, <code style="font-family:'IBM Plex Mono',monospace">mart_city_season_summary</code> and <code style="font-family:'IBM Plex Mono',monospace">mart_extreme_events</code> in the real repo.</p>
+    <p class="mono">“In 2026, the differentiator is discipline.” — State of Analytics Engineering 2026</p>
+    <button class="btn" onclick="location.reload()">NEW SHIFT ▶</button>
+  </div>`;
+  document.body.appendChild(o);
+  log('PASS','Done. 17 models · 146 checks — factory certified 🎉');
+}
+function loseGame(){
+  if(S.over)return;S.over=true;
+  const o=document.createElement('div');o.className='overlay';
+  o.innerHTML=`<div class="inner">
+    <h2 style="color:var(--fail)">THE DASHBOARD IS LYING</h2>
+    <div class="garbage">Madrid&nbsp;&nbsp;&nbsp;NaN°C · comfort: NULL<br>Sevilla&nbsp;&nbsp;999°C · comfort: −3<br>Bilbao&nbsp;&nbsp;&nbsp;"2026-06-07" · comfort: 👺<br>Bilbao&nbsp;&nbsp;&nbsp;"2026-06-07" · comfort: 👺 (duplicate)</div>
+    ${endStats()}
+    <p>Stakeholder trust hit zero — and unlike a table, trust has no <code style="font-family:'IBM Plex Mono',monospace">--full-refresh</code>. Tip: automate the cheap fixes early (S02–03), save clicks for surges, and never face a storm without a 🛡️ contract.</p>
+    <button class="btn" onclick="location.reload()">ROLL BACK & RETRY ▶</button>
+  </div>`;
+  document.body.appendChild(o);
+}
+
+/* ============ BOOT ============ */
+function startGame(){
+  $('intro').remove();
+  S.running=true;S.last=0;
+  buildShop();hudSync();
+  log('INFO','shift started · profiles.yml found · the swamp is flowing');
+  log('INFO','💡 stg_caster (S02) is affordable at 🪙30 — your first hire');
+}
+buildShop();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
