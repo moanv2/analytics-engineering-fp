@@ -5,13 +5,18 @@ models:
     description: >
       Monthly comfort summary. Grain: one row per city per calendar month
       (up to 12). Powers the "best month to visit" picker in the planner tool.
+    config:
+      contract:
+        enforced: true
     columns:
       - name: city_month_sk
+        data_type: varchar
         description: "Surrogate primary key (one row per city per month)."
         tests:
           - unique
           - not_null
       - name: location_sk
+        data_type: varchar
         description: "Foreign key to dim_location."
         tests:
           - not_null
@@ -20,12 +25,20 @@ models:
                 to: ref('dim_location')
                 field: location_sk
       - name: location_id
+        data_type: integer
+        description: "Natural location key."
         tests:
           - not_null
       - name: city_name
+        data_type: varchar
+        description: "City name."
         tests:
           - not_null
+      - name: country_code
+        data_type: varchar
+        description: "ISO country code."
       - name: month_num
+        data_type: integer
         description: "Calendar month number, 1-12."
         tests:
           - not_null
@@ -34,20 +47,53 @@ models:
                 min_value: 1
                 max_value: 12
       - name: month_name
+        data_type: varchar
         description: "Calendar month name."
         tests:
           - not_null
       - name: season
+        data_type: varchar
         description: "Meteorological season the month belongs to."
         tests:
           - accepted_values:
               arguments:
                 values: ["Winter", "Spring", "Summer", "Autumn"]
       - name: total_days
+        data_type: bigint
         description: "Days observed in the month for the city."
         tests:
           - non_negative
+      - name: avg_temperature_c
+        data_type: double
+        description: "Average daily mean temperature in the month (Celsius)."
+      - name: avg_max_temperature_c
+        data_type: double
+        description: "Average daily maximum temperature in the month (Celsius)."
+      - name: total_precipitation_mm
+        data_type: double
+        description: "Total precipitation in the month (mm)."
+      - name: comfortable_days
+        data_type: bigint
+        description: "Count of comfortable days in the month."
+        tests:
+          - non_negative
+      - name: rainy_days
+        data_type: bigint
+        description: "Count of rainy days in the month."
+        tests:
+          - non_negative
+      - name: hot_days
+        data_type: bigint
+        description: "Count of extreme-heat days in the month."
+        tests:
+          - non_negative
+      - name: freezing_days
+        data_type: bigint
+        description: "Count of freezing days in the month."
+        tests:
+          - non_negative
       - name: comfort_score
+        data_type: double
         description: "Share of comfortable days in the month, 0-100."
         tests:
           - dbt_expectations.expect_column_values_to_be_between:
@@ -60,13 +106,18 @@ models:
       Daily temperature anomaly. Grain: one row per city per day. Each day's mean
       temperature is compared to that city's seasonal average (window functions);
       anomaly_z is the deviation in standard deviations.
+    config:
+      contract:
+        enforced: true
     columns:
       - name: anomaly_sk
+        data_type: varchar
         description: "Surrogate primary key (one row per city per day)."
         tests:
           - unique
           - not_null
       - name: location_sk
+        data_type: varchar
         description: "Foreign key to dim_location."
         tests:
           - not_null
@@ -75,19 +126,41 @@ models:
                 to: ref('dim_location')
                 field: location_sk
       - name: location_id
+        data_type: integer
+        description: "Natural location key."
         tests:
           - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_location')
+                field: location_id
+      - name: city_name
+        data_type: varchar
+        description: "City name."
+      - name: country_code
+        data_type: varchar
+        description: "ISO country code."
       - name: weather_date
+        data_type: date
         description: "Calendar date."
         tests:
           - not_null
       - name: season
+        data_type: varchar
         description: "Meteorological season of the date."
         tests:
           - accepted_values:
               arguments:
                 values: ["Winter", "Spring", "Summer", "Autumn"]
+      - name: temperature_2m_mean
+        data_type: double
+        description: "Daily mean temperature at 2m in Celsius."
+      - name: season_mean_c
+        data_type: double
+        description: "The city's average mean temperature for that season (Celsius)."
       - name: anomaly_c
+        data_type: double
         description: "Mean temperature minus the city's seasonal average (Celsius)."
       - name: anomaly_z
+        data_type: double
         description: "Anomaly expressed in standard deviations from the seasonal mean."

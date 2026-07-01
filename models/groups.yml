@@ -1,0 +1,13 @@
+version: 2
+
+# A group is a unit of ownership and the scope that `access: private` is
+# enforced within: a private model can only be ref()'d by models in the same
+# group. Every model in this project belongs to weather_analytics (set as a
+# default in dbt_project.yml), so the marts can still ref the private staging
+# and intermediate models, while anything OUTSIDE this project is blocked from
+# depending on that hidden implementation layer.
+groups:
+  - name: weather_analytics
+    owner:
+      name: "Marco Ortiz Togashi & team"
+      email: marco.ortiztogashi@student.ie.edu

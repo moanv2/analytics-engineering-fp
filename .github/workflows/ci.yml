@@ -45,5 +45,11 @@ jobs:
       - name: Python unit tests
         run: uv run pytest tests_python --cov=extract_open_meteo --cov-report=term-missing --cov-fail-under=80
 
-      - name: dbt build (dev target — all models + tests)
+      - name: dbt build (dev target — all models + tests + snapshots)
         run: uv run dbt build --target dev
+
+      # The normal build only ever runs the incremental branch of
+      # fct_forecast_city_day. Exercise the full-refresh (rebuild-from-scratch)
+      # path too, so a schema/logic change can never silently break it.
+      - name: dbt full-refresh (incremental rebuild path)
+        run: uv run dbt build --target dev --full-refresh --select fct_forecast_city_day

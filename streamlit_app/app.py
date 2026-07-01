@@ -475,6 +475,22 @@ def load_forecast() -> pd.DataFrame:
     ).df()
 
 
+@st.cache_data(ttl=600)
+def load_locations() -> pd.DataFrame:
+    """Location dimension (v2) — carries elevation_band (Lowland/Midland/Highland).
+
+    Wrapped in try/except so an older build of dim_location (v1, without
+    elevation_band) degrades to an empty frame instead of crashing the app.
+    """
+    try:
+        return get_connection().sql(
+            "select city_name, elevation, elevation_band, admin1, population "
+            "from main.dim_location"
+        ).df()
+    except Exception:
+        return pd.DataFrame()
+
+
 # --------------------------------------------------------------------------- #
 # Load
 # --------------------------------------------------------------------------- #
@@ -522,7 +538,7 @@ st.markdown(
     """
     <div class="hero">
       <h1>City Comfort Index</h1>
-      <p>HOW PLEASANT IS THE WEATHER ACROSS SPAIN'S LARGEST CITIES? A LIVE COMFORT,
+      <p>HOW PLEASANT IS THE WEATHER ACROSS SPAIN'S LARGEST CITIES? A COMFORT,
       CLIMATE AND AIR-QUALITY VIEW BUILT ON OPEN-METEO DATA — STRAIGHT FROM THE DBT MARTS.</p>
     </div>
     """,
@@ -602,25 +618,26 @@ best_city = ranking.iloc[0]
 def _zone_now(tz: str) -> str:
     """Current HH:MM:SS in an IANA timezone; falls back to UTC if tzdata is missing."""
     try:
-        return datetime.now(ZoneInfo(tz)).strftime("%H:%M:%S")
+        return datetime.now(ZoneInfo(tz)).strftime("%H:%M")
     except Exception:
-        return datetime.now(timezone.utc).strftime("%H:%M:%S") + " UTC"
+        return datetime.now(timezone.utc).strftime("%H:%M") + " UTC"
 
 
-@st.fragment(run_every="1s")
+@st.fragment(run_every="15s")
 def live_status() -> None:
+    # The clocks are genuine wall-clock time (the honest "live" element); the
+    # DATA is a fixed snapshot, so its freshness is shown separately, up front.
     spain = _zone_now("Europe/Madrid")       # mainland Spain (CET/CEST)
     canary = _zone_now("Atlantic/Canary")    # Canary Islands (1h behind)
     span = f"{start_date:%d %b %Y} – {end_date:%d %b %Y}"
     st.markdown(
         f"""
         <div class="chips" style="margin:.2rem 0 1.2rem">
-          <span class="chip"><span class="dot"></span>LIVE</span>
-          <span class="chip muted">🇪🇸 SPAIN {spain}</span>
-          <span class="chip muted">🏝️ CANARY {canary}</span>
-          <span class="chip muted">MONITORING {len(selected_cities)} CITIES</span>
+          <span class="chip">DATA THROUGH {max_date:%d %b %Y}</span>
+          <span class="chip muted"><span class="dot"></span>LOCAL TIME · SPAIN {spain}</span>
+          <span class="chip muted">CANARY {canary}</span>
+          <span class="chip muted">{len(selected_cities)} CITIES · {len(w):,} CITY-DAYS</span>
           <span class="chip muted">WINDOW {span}</span>
-          <span class="chip muted">{len(w):,} CITY-DAYS</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -628,6 +645,33 @@ def live_status() -> None:
 
 
 live_status()
+
+# --------------------------------------------------------------------------- #
+# Verdict banner — answer the hero's question in the first fold (finding-first)
+# --------------------------------------------------------------------------- #
+_bc_comf = int(best_city["comfortable_days"])
+st.markdown(
+    f"""
+    <div style="border:4px solid {INK};box-shadow:10px 10px 0 {INK};background:{PAPER};
+      padding:1.05rem 1.4rem;margin:.1rem 0 1.6rem;display:flex;align-items:center;
+      justify-content:space-between;gap:1.2rem;flex-wrap:wrap;">
+      <div style="min-width:220px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:700;
+          letter-spacing:.16em;color:{TERRACOTTA};text-transform:uppercase;">The answer &middot; most comfortable of your selection</div>
+        <div style="font-family:'Darker Grotesque',sans-serif;font-weight:900;
+          font-size:clamp(2.1rem,5vw,3.3rem);line-height:.95;text-transform:uppercase;color:{INK};">{best_city['city_name']}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:{MUTED};">{_bc_comf} comfortable days &middot; {len(selected_cities)} cities compared</div>
+      </div>
+      <div style="text-align:right;min-width:150px;">
+        <div style="font-family:'Darker Grotesque',sans-serif;font-weight:900;
+          font-size:clamp(3rem,8vw,4.8rem);line-height:.9;color:{TERRACOTTA};">{best_city['overall_comfort_index']:.0f}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.66rem;font-weight:700;
+          letter-spacing:.1em;color:{MUTED};text-transform:uppercase;">comfort index</div>
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # --------------------------------------------------------------------------- #
 # Planner — interactive "find your ideal city" recommender (searches all 58)
@@ -814,6 +858,56 @@ k4.metric("Top city", best_city["city_name"],
           f"index {best_city['overall_comfort_index']:.1f}")
 
 st.markdown("")
+
+
+# --------------------------------------------------------------------------- #
+# Terrain — comfort vs. elevation (uses the versioned dim_location v2 column)
+# --------------------------------------------------------------------------- #
+loc = load_locations()
+if not loc.empty and "elevation_band" in loc.columns:
+    sc = s.merge(
+        loc[["city_name", "elevation", "elevation_band"]], on="city_name", how="left"
+    ).dropna(subset=["elevation_band"])
+    if not sc.empty:
+        section("Terrain", "Comfort vs. elevation")
+        _bands = ["Lowland", "Midland", "Highland"]
+        band_map = {"Lowland": OCHRE, "Midland": GREEN, "Highland": COBALT}
+        el_l, el_r = st.columns([1.8, 1])
+        with el_l:
+            fig_el = px.scatter(
+                sc, x="elevation", y="overall_comfort_index",
+                color="elevation_band", size="freezing_days", size_max=26,
+                hover_name="city_name",
+                category_orders={"elevation_band": _bands},
+                color_discrete_map=band_map,
+                labels={"elevation": "Elevation (m)",
+                        "overall_comfort_index": "Comfort index",
+                        "elevation_band": "Terrain", "freezing_days": "Freezing days"},
+            )
+            fig_el.update_traces(marker=dict(sizemin=5, line=dict(color=INK, width=1.2)))
+            st.plotly_chart(style_fig(fig_el, height=360), width="stretch")
+        with el_r:
+            band_stats = (
+                sc.groupby("elevation_band")
+                .agg(Cities=("city_name", "count"),
+                     Comfort=("overall_comfort_index", "mean"),
+                     Temp=("avg_temperature_c", "mean"),
+                     Freeze=("freezing_days", "mean"))
+                .reindex(_bands).dropna(how="all")
+                .round({"Comfort": 0, "Temp": 0, "Freeze": 0})
+                .reset_index().rename(columns={"elevation_band": "Terrain"})
+            )
+            st.dataframe(band_stats, hide_index=True, width="stretch")
+            _hi = band_stats[band_stats["Terrain"] == "Highland"]
+            _lo = band_stats[band_stats["Terrain"] == "Lowland"]
+            if not _hi.empty and not _lo.empty:
+                st.caption(
+                    f"The elevation trade-off — Highland cities average "
+                    f"{_hi['Freeze'].iloc[0]:.0f} freezing days vs "
+                    f"{_lo['Freeze'].iloc[0]:.0f} for Lowland. Grouped by the "
+                    f"versioned dim_location.elevation_band (v2)."
+                )
+        st.markdown("")
 
 
 # --------------------------------------------------------------------------- #

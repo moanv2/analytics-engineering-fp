@@ -56,6 +56,7 @@ dependencies = [
     { name = "plotly" },
     { name = "pyarrow" },
     { name = "streamlit" },
+    { name = "tzdata" },
 ]
 
 [package.optional-dependencies]
@@ -83,7 +84,8 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "sqlfluff", marker = "extra == 'dev'", specifier = ">=3.0" },
     { name = "sqlfluff-templater-dbt", marker = "extra == 'dev'" },
-    { name = "streamlit", specifier = ">=1.30" },
+    { name = "streamlit", specifier = ">=1.37" },
+    { name = "tzdata" },
 ]
 provides-extras = ["dev"]
 

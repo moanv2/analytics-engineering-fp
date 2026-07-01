@@ -16,12 +16,21 @@ clean-targets:
 
 models:
   weather_analytics:
+    # Ownership + the scope that `access: private` is enforced within. Every
+    # model is in this one group, so marts can still ref the private plumbing.
+    +group: weather_analytics
     staging:
       +materialized: view
+      # Hidden implementation: only same-group (this project) models may ref it.
+      +access: private
     intermediate:
       +materialized: view
+      +access: private
     marts:
       +materialized: table
+      # The public product API: the marts are the only models the dashboard
+      # (and any future consumer) is allowed to depend on.
+      +access: public
       # Write model + column descriptions into the warehouse as COMMENTs.
       +persist_docs:
         relation: true
